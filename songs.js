@@ -24,9 +24,23 @@ const songs = [
     ]
   },
 
-  // STÜCK 2 – diesen Block später mit den echten Daten ersetzen
-  { id: "song-2", title: "Stück 2", composer: "Demnächst", placeholder: true },
-
+  // STÜCK 2
+  {
+    id: "der-herr-ist-mein-hirt",
+    title: "Der Herr ist mein Hirt",
+    composer: "Bernhard Klein",
+    tracks: [
+      { name: "Klavier", file: "audio/der-herr-ist-mein-hirt/klavier.mp3", defaultVolume: 80 },
+      { name: "Sopran", file: "audio/der-herr-ist-mein-hirt/sopran.mp3", defaultVolume: 80 },
+      { name: "Alt", file: "audio/der-herr-ist-mein-hirt/alt.mp3", defaultVolume: 80 },
+      { name: "Tenor", file: "audio/der-herr-ist-mein-hirt/tenor.mp3", defaultVolume: 80, boost: 1.5 },
+      { name: "Bass", file: "audio/der-herr-ist-mein-hirt/bass.mp3", defaultVolume: 80, boost: 1.5 }
+    ],
+    sheets: [
+      { from: 0, file: "noten/der-herr-ist-mein-hirt/seite-1.jpeg" },
+      { from: 9999, file: "noten/der-herr-ist-mein-hirt/seite-2.jpeg" }
+    ]
+  },
   // STÜCK 3
   { id: "song-3", title: "Stück 3", composer: "Demnächst", placeholder: true },
 
