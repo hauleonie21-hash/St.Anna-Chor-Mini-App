@@ -25,12 +25,19 @@ let tracks = [];
 let isPlaying = false;
 let progressFrame = null;
 
+
+// ======================================================
+// BIBLIOTHEK
+// ======================================================
+
 function renderLibrary() {
   songLibrary.innerHTML = "";
 
   songs.forEach((song, index) => {
     const card = document.createElement("article");
-    card.className = `song-card ${song.placeholder ? "placeholder" : "available"}`;
+
+    card.className =
+      `song-card ${song.placeholder ? "placeholder" : "available"}`;
 
     card.innerHTML = `
       <div>
@@ -38,7 +45,12 @@ function renderLibrary() {
         <h2>${song.title}</h2>
         <p>${song.composer}</p>
       </div>
-      ${song.placeholder ? "" : '<button class="open-song" type="button">▶ Stück öffnen</button>'}
+
+      ${
+        song.placeholder
+          ? ""
+          : '<button class="open-song" type="button">▶ Stück öffnen</button>'
+      }
     `;
 
     if (!song.placeholder) {
@@ -49,8 +61,16 @@ function renderLibrary() {
   });
 }
 
+
+// ======================================================
+// ALTE TRACKS ENTFERNEN
+// ======================================================
+
 function destroyTracks() {
-  if (progressFrame) cancelAnimationFrame(progressFrame);
+  if (progressFrame) {
+    cancelAnimationFrame(progressFrame);
+  }
+
   progressFrame = null;
 
   tracks.forEach(t => {
@@ -63,10 +83,16 @@ function destroyTracks() {
   isPlaying = false;
 }
 
+
+// ======================================================
+// STÜCK ÖFFNEN
+// ======================================================
+
 function openSong(song) {
   destroyTracks();
 
   activeSong = song;
+
   libraryView.hidden = true;
   playerView.hidden = false;
 
@@ -96,19 +122,32 @@ function openSong(song) {
   });
 }
 
+
+// ======================================================
+// AUDIO-TRACKS ERSTELLEN
+// ======================================================
+
 function createTracks(configs) {
+
   configs.forEach((config, index) => {
+
     const audio = new Audio(config.file);
+
     audio.preload = "auto";
 
     const card = document.createElement("article");
+
     card.className = "track";
 
     card.innerHTML = `
       <h2>${config.name}</h2>
 
       <div class="volume-wrap">
-        <label for="vol-${index}">Lautstärke</label>
+
+        <label for="vol-${index}">
+          Lautstärke
+        </label>
+
         <input
           id="vol-${index}"
           type="range"
@@ -116,296 +155,618 @@ function createTracks(configs) {
           max="100"
           value="${config.defaultVolume}"
         >
-        <span id="val-${index}">${config.defaultVolume}%</span>
+
+        <span id="val-${index}">
+          ${config.defaultVolume}%
+        </span>
+
       </div>
 
       <button
         type="button"
         class="solo"
         aria-label="${config.name} solo hören"
-      >S</button>
+      >
+        S
+      </button>
 
       <button
         type="button"
         class="mute"
         aria-label="${config.name} stumm schalten"
-      >M</button>
+      >
+        M
+      </button>
     `;
 
     tracksEl.appendChild(card);
 
+
     const track = {
+
       config,
+
       audio,
-      volume: card.querySelector(`#vol-${index}`),
-      value: card.querySelector(`#val-${index}`),
-      solo: card.querySelector(".solo"),
-      mute: card.querySelector(".mute"),
+
+      volume:
+        card.querySelector(`#vol-${index}`),
+
+      value:
+        card.querySelector(`#val-${index}`),
+
+      solo:
+        card.querySelector(".solo"),
+
+      mute:
+        card.querySelector(".mute"),
+
       isSolo: false,
+
       isMuted: false
     };
 
+
     tracks.push(track);
 
+
+    // Lautstärke
     track.volume.addEventListener("input", () => {
-      track.value.textContent = `${track.volume.value}%`;
+
+      track.value.textContent =
+        `${track.volume.value}%`;
+
       updateVolumes();
     });
 
+
+    // SOLO
     track.solo.addEventListener("click", () => {
+
       track.isSolo = !track.isSolo;
-      track.solo.classList.toggle("active", track.isSolo);
+
+      track.solo.classList.toggle(
+        "active",
+        track.isSolo
+      );
+
       updateVolumes();
     });
 
+
+    // MUTE
     track.mute.addEventListener("click", () => {
+
       track.isMuted = !track.isMuted;
-      track.mute.classList.toggle("active", track.isMuted);
+
+      track.mute.classList.toggle(
+        "active",
+        track.isMuted
+      );
+
       updateVolumes();
     });
 
-    audio.addEventListener("loadedmetadata", updateProgress);
 
+    // Metadaten geladen
+    audio.addEventListener(
+      "loadedmetadata",
+      updateProgress
+    );
+
+
+    // Ende des Stücks
     if (index === 0) {
-      audio.addEventListener("ended", stopAll);
+
+      audio.addEventListener(
+        "ended",
+        stopAll
+      );
+
     }
+
   });
 }
 
+
+// ======================================================
+// LAUTSTÄRKE / TEMPO
+// ======================================================
+
 function updateVolumes() {
-  const master = Number(masterVolume.value) / 100;
-  const hasSolo = tracks.some(t => t.isSolo);
+
+  const master =
+    Number(masterVolume.value) / 100;
+
+  const hasSolo =
+    tracks.some(t => t.isSolo);
+
 
   tracks.forEach(t => {
-    let ownVolume =
-      Number(t.volume.value) / 100 * (t.config.boost || 1);
 
-    ownVolume = Math.min(ownVolume, 1);
+    let ownVolume =
+      Number(t.volume.value) / 100 *
+      (t.config.boost || 1);
+
+
+    ownVolume =
+      Math.min(ownVolume, 1);
+
 
     t.audio.volume =
-      t.isMuted || (hasSolo && !t.isSolo)
+      t.isMuted ||
+      (hasSolo && !t.isSolo)
+
         ? 0
+
         : ownVolume * master;
+
 
     t.audio.playbackRate =
       Number(tempo.value) / 100;
+
   });
 
-  masterValue.textContent = `${masterVolume.value}%`;
-  tempoValue.textContent = `${tempo.value}%`;
+
+  masterValue.textContent =
+    `${masterVolume.value}%`;
+
+  tempoValue.textContent =
+    `${tempo.value}%`;
 }
 
+
+// ======================================================
+// AUDIO SYNCHRONISIEREN
+// ======================================================
+
 function syncToFirstTrack() {
+
   const current =
     tracks[0]?.audio.currentTime || 0;
 
+
   tracks.forEach(t => {
+
     t.audio.currentTime = current;
+
   });
+
 }
 
+
+// ======================================================
+// ABSPIELEN
+// ======================================================
+//
+// WICHTIG:
+// Diese Version prüft jede Stimme einzeln.
+// Wenn eine Datei nicht abgespielt werden kann,
+// zeigt die App genau an, welche Datei betroffen ist.
+// ======================================================
+
 async function playAll() {
-  if (!tracks.length) return;
+
+  if (!tracks.length) {
+    return;
+  }
+
 
   syncToFirstTrack();
 
-  try {
-    await Promise.all(
-      tracks.map(t => t.audio.play())
-    );
 
-    isPlaying = true;
-    playPauseBtn.textContent = "⏸ Pause";
-    updateProgress();
+  for (const t of tracks) {
 
-  } catch {
-    alert(
-      "Die Audiodateien konnten nicht abgespielt werden. Bitte prüfe die Dateien im Audio-Ordner."
-    );
+    try {
+
+      await t.audio.play();
+
+      console.log(
+        "Audio OK:",
+        t.config.name,
+        t.config.file
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Audio FEHLER:",
+        t.config.name,
+        t.config.file,
+        error
+      );
+
+
+      tracks.forEach(track => {
+        track.audio.pause();
+      });
+
+
+      alert(
+        `Diese Audiodatei kann nicht geladen werden:\n\n` +
+        `${t.config.name}\n` +
+        `${t.config.file}`
+      );
+
+
+      return;
+    }
+
   }
-}
 
-function pauseAll() {
-  tracks.forEach(t => t.audio.pause());
 
-  isPlaying = false;
-  playPauseBtn.textContent = "▶ Abspielen";
-}
+  isPlaying = true;
 
-function stopAll() {
-  pauseAll();
+  playPauseBtn.textContent =
+    "⏸ Pause";
 
-  tracks.forEach(t => {
-    t.audio.currentTime = 0;
-  });
-
-  progress.value = 0;
-
-  updateSheetMusic(0);
   updateProgress();
 }
 
-function resetAll() {
-  stopAll();
 
-  masterVolume.value = 80;
-  tempo.value = 100;
+// ======================================================
+// PAUSE
+// ======================================================
+
+function pauseAll() {
 
   tracks.forEach(t => {
-    t.volume.value = t.config.defaultVolume;
+    t.audio.pause();
+  });
+
+
+  isPlaying = false;
+
+  playPauseBtn.textContent =
+    "▶ Abspielen";
+}
+
+
+// ======================================================
+// STOPP
+// ======================================================
+
+function stopAll() {
+
+  pauseAll();
+
+
+  tracks.forEach(t => {
+
+    t.audio.currentTime = 0;
+
+  });
+
+
+  progress.value = 0;
+
+
+  updateSheetMusic(0);
+
+  updateProgress();
+}
+
+
+// ======================================================
+// RESET
+// ======================================================
+
+function resetAll() {
+
+  stopAll();
+
+
+  masterVolume.value = 80;
+
+  tempo.value = 100;
+
+
+  tracks.forEach(t => {
+
+    t.volume.value =
+      t.config.defaultVolume;
+
+
     t.value.textContent =
       `${t.config.defaultVolume}%`;
 
+
     t.isSolo = false;
+
     t.isMuted = false;
 
+
     t.solo.classList.remove("active");
+
     t.mute.classList.remove("active");
+
   });
+
 
   updateVolumes();
 }
 
-function updateSheetMusic(currentTime) {
-  if (!activeSong?.sheets?.length) return;
 
-  let page = activeSong.sheets[0];
+// ======================================================
+// NOTEN
+// ======================================================
+
+function updateSheetMusic(currentTime) {
+
+  if (!activeSong?.sheets?.length) {
+    return;
+  }
+
+
+  let page =
+    activeSong.sheets[0];
+
 
   activeSong.sheets.forEach(sheet => {
+
     if (currentTime >= sheet.from) {
+
       page = sheet;
+
     }
+
   });
 
+
   if (!sheetImage.src.endsWith(page.file)) {
+
     sheetImage.src = page.file;
+
   }
+
 }
 
+
+// ======================================================
+// ZEITANZEIGE
+// ======================================================
+
 function formatTime(seconds) {
+
   if (!seconds || isNaN(seconds)) {
+
     return "0:00";
+
   }
 
-  const min = Math.floor(seconds / 60);
 
-  const sec = Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, "0");
+  const min =
+    Math.floor(seconds / 60);
+
+
+  const sec =
+    Math.floor(seconds % 60)
+      .toString()
+      .padStart(2, "0");
+
 
   return `${min}:${sec}`;
 }
 
+
+// ======================================================
+// FORTSCHRITT
+// ======================================================
+
 function updateProgress() {
-  if (!tracks.length) return;
 
-  const first = tracks[0].audio;
+  if (!tracks.length) {
+    return;
+  }
 
-  const current = first.currentTime;
-  const duration = first.duration || 0;
+
+  const first =
+    tracks[0].audio;
+
+
+  const current =
+    first.currentTime;
+
+
+  const duration =
+    first.duration || 0;
+
 
   updateSheetMusic(current);
 
+
   if (duration > 0) {
+
     progress.value =
       (current / duration) * 100;
 
+
     timeDisplay.textContent =
       `${formatTime(current)} / ${formatTime(duration)}`;
+
   }
 
+
   if (isPlaying) {
+
     progressFrame =
-      requestAnimationFrame(updateProgress);
+      requestAnimationFrame(
+        updateProgress
+      );
+
   }
+
 }
+
+
+// ======================================================
+// BUTTONS
+// ======================================================
 
 playPauseBtn.addEventListener(
   "click",
-  () => isPlaying ? pauseAll() : playAll()
+  () => {
+
+    if (isPlaying) {
+
+      pauseAll();
+
+    } else {
+
+      playAll();
+
+    }
+
+  }
 );
+
 
 stopBtn.addEventListener(
   "click",
   stopAll
 );
 
+
 resetBtn.addEventListener(
   "click",
   resetAll
 );
+
+
+// ======================================================
+// MASTER-LAUTSTÄRKE
+// ======================================================
 
 masterVolume.addEventListener(
   "input",
   updateVolumes
 );
 
+
+// ======================================================
+// TEMPO
+// ======================================================
+
 tempo.addEventListener(
   "input",
   updateVolumes
 );
 
+
+// ======================================================
+// ZEITREGLER
+// ======================================================
+
 progress.addEventListener(
   "input",
   () => {
-    if (!tracks.length) return;
+
+    if (!tracks.length) {
+      return;
+    }
+
 
     const duration =
       tracks[0].audio.duration || 0;
 
+
     const newTime =
-      Number(progress.value) / 100 * duration;
+      Number(progress.value) /
+      100 *
+      duration;
+
 
     tracks.forEach(t => {
-      t.audio.currentTime = newTime;
+
+      t.audio.currentTime =
+        newTime;
+
     });
 
+
     updateSheetMusic(newTime);
+
   }
 );
+
+
+// ======================================================
+// 10 SEKUNDEN ZURÜCK
+// ======================================================
 
 rewindBtn.addEventListener(
   "click",
   () => {
+
     tracks.forEach(t => {
+
       t.audio.currentTime =
-        Math.max(0, t.audio.currentTime - 10);
+        Math.max(
+          0,
+          t.audio.currentTime - 10
+        );
+
     });
 
+
     updateProgress();
+
   }
 );
+
+
+// ======================================================
+// 10 SEKUNDEN VOR
+// ======================================================
 
 forwardBtn.addEventListener(
   "click",
   () => {
+
     tracks.forEach(t => {
+
       t.audio.currentTime =
         Math.min(
           t.audio.duration || 0,
           t.audio.currentTime + 10
         );
+
     });
 
+
     updateProgress();
+
   }
 );
+
+
+// ======================================================
+// ZURÜCK ZUR BIBLIOTHEK
+// ======================================================
 
 backToLibrary.addEventListener(
   "click",
   () => {
+
     destroyTracks();
 
     activeSong = null;
 
     playerView.hidden = true;
+
     libraryView.hidden = false;
+
 
     window.scrollTo({
       top: 0,
       behavior: "smooth"
     });
+
   }
 );
+
+
+// ======================================================
+// APP STARTEN
+// ======================================================
 
 renderLibrary();
