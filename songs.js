@@ -51,14 +51,16 @@ const songs = [
       }
     ],
 
-    sheets: [
-      {
-        from: 0,
-        file: "noten/der-herr-ist-mein-hirt/seite-1.jpeg"
-      },
-      {
-        from: 52,
-        file: "noten/der-herr-ist-mein-hirt/seite-2.jpeg"
+  sheets: [
+  {
+    from: 0,
+    file: "noten/der-herr-ist-mein-hirt/seite-1.jpg"
+  },
+  {
+    from: 52,
+    file: "noten/der-herr-ist-mein-hirt/seite-2.jpg"
+  }
+]
       }
     ]
   },
