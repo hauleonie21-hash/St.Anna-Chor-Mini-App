@@ -48,19 +48,23 @@ const songs = [
         file: "audio/der-herr-ist-mein-hirt/tenor.mp3",
         defaultVolume: 80,
         boost: 1.5
+      },
+      {
+        name: "Bass",
+        file: "audio/der-herr-ist-mein-hirt/bass.mp3",
+        defaultVolume: 80,
+        boost: 1.5
       }
     ],
 
-  sheets: [
-  {
-    from: 0,
-    file: "noten/der-herr-ist-mein-hirt/seite-1.jpg"
-  },
-  {
-    from: 52,
-    file: "noten/der-herr-ist-mein-hirt/seite-2.jpg"
-  }
-]
+    sheets: [
+      {
+        from: 0,
+        file: "noten/der-herr-ist-mein-hirt/seite-1.jpg"
+      },
+      {
+        from: 52,
+        file: "noten/der-herr-ist-mein-hirt/seite-2.jpg"
       }
     ]
   },
