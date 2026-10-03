@@ -1,72 +1,712 @@
-<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>St. Anna Chor – Übe-App</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <main class="app">
-    <section id="libraryView" class="view">
-      <header class="library-header">
-        <p class="eyebrow">St. Anna Chor · Übe-App</p>
-        <h1>Was möchtest du heute üben?</h1>
-        <p class="intro">Wähle ein Stück aus deiner Bibliothek.</p>
-      </header>
-      <section id="songLibrary" class="song-library" aria-label="Stückbibliothek"></section>
-    </section>
+// Die Song-Daten stehen separat in songs.js.
 
-    <section id="playerView" class="view" hidden>
-      <button id="backToLibrary" class="back-button" type="button">← Zurück zur Bibliothek</button>
-      <header>
-        <h1 id="songTitle"></h1>
-        <p class="intro">Ihr Lieben – hier eine Möglichkeit, die Stimmen bequem zu Hause zu üben. 😊</p>
-      </header>
+const libraryView = document.getElementById("libraryView");
+const playerView = document.getElementById("playerView");
+const songLibrary = document.getElementById("songLibrary");
+const songTitle = document.getElementById("songTitle");
+const backToLibrary = document.getElementById("backToLibrary");
+const tracksEl = document.getElementById("tracks");
+const playPauseBtn = document.getElementById("playPause");
+const stopBtn = document.getElementById("stop");
+const resetBtn = document.getElementById("reset");
+const masterVolume = document.getElementById("masterVolume");
+const masterValue = document.getElementById("masterValue");
+const tempo = document.getElementById("tempo");
+const tempoValue = document.getElementById("tempoValue");
+const rewindBtn = document.getElementById("rewind");
+const forwardBtn = document.getElementById("forward");
+const progress = document.getElementById("progress");
+const timeDisplay = document.getElementById("timeDisplay");
+const sheetImage = document.getElementById("sheetImage");
+const sheetSection = document.getElementById("sheetSection");
 
-      <section class="controls main-controls" aria-label="Hauptsteuerung">
-        <button id="rewind">⏪ 10 Sek. zurück</button>
-        <button id="playPause" class="primary">▶ Abspielen</button>
-        <button id="forward">10 Sek. vor ⏩</button>
-        <button id="stop">■ Stopp</button>
-        <button id="reset">Reset</button>
-      </section>
+let activeSong = null;
+let tracks = [];
+let isPlaying = false;
+let progressFrame = null;
 
-      <section class="control-card">
-        <label for="progress"><strong>Position im Stück</strong></label>
-        <input id="progress" type="range" min="0" max="100" value="0" step="0.1">
-        <span id="timeDisplay">0:00 / 0:00</span>
-      </section>
 
-      <section id="sheetSection" class="sheet-music">
-        <h2>Noten</h2>
-        <img id="sheetImage" alt="Noten" class="sheet-image">
-      </section>
+// ------------------------------------------------------------
+// PFAD HELFER
+// ------------------------------------------------------------
 
-      <section id="tracks" class="tracks" aria-label="Stimmen"></section>
+function mediaPath(path) {
+  return new URL(path, document.baseURI).href;
+}
 
-      <section class="bottom-controls">
-        <div class="control-card">
-          <label for="masterVolume"><strong>Master</strong> Gesamtlautstärke</label>
-          <input id="masterVolume" type="range" min="0" max="100" value="80" />
-          <span id="masterValue">80%</span>
-        </div>
-        <div class="control-card">
-          <label for="tempo"><strong>Tempo</strong> langsamer oder schneller</label>
-          <input id="tempo" type="range" min="50" max="120" value="100" />
-          <span id="tempoValue">100%</span>
-        </div>
-      </section>
 
-      <section class="help">
-        <h2>Kurze Hilfe</h2>
-        <p><strong>S</strong> bedeutet Solo: Nur diese Stimme ist hörbar.</p>
-        <p><strong>M</strong> bedeutet Mute: Diese Stimme wird stummgeschaltet.</p>
-        <p>Mit <strong>Reset</strong> wird alles wieder auf Anfang gestellt.</p>
-      </section>
-    </section>
-  </main>
-  <script src="songs.js"></script>
-  <script src="script.js"></script>
-</body>
-</html>
+// ------------------------------------------------------------
+// BIBLIOTHEK
+// ------------------------------------------------------------
+
+function renderLibrary() {
+
+  songLibrary.innerHTML = "";
+
+  songs.forEach((song, index) => {
+
+    const card = document.createElement("article");
+
+    card.className =
+      `song-card ${song.placeholder ? "placeholder" : "available"}`;
+
+    card.innerHTML = `
+      <div>
+        <p class="song-number">STÜCK ${index + 1}</p>
+        <h2>${song.title}</h2>
+        <p>${song.composer}</p>
+      </div>
+
+      ${
+        song.placeholder
+          ? ""
+          : '<button class="open-song" type="button">▶ Stück öffnen</button>'
+      }
+    `;
+
+    if (!song.placeholder) {
+      card.addEventListener("click", () => openSong(song));
+    }
+
+    songLibrary.appendChild(card);
+  });
+}
+
+
+// ------------------------------------------------------------
+// ALTE TRACKS ENTFERNEN
+// ------------------------------------------------------------
+
+function destroyTracks() {
+
+  if (progressFrame) {
+    cancelAnimationFrame(progressFrame);
+  }
+
+  progressFrame = null;
+
+  tracks.forEach(track => {
+    track.audio.pause();
+    track.audio.removeAttribute("src");
+    track.audio.load();
+  });
+
+  tracks = [];
+  tracksEl.innerHTML = "";
+  isPlaying = false;
+}
+
+
+// ------------------------------------------------------------
+// STÜCK ÖFFNEN
+// ------------------------------------------------------------
+
+function openSong(song) {
+
+  destroyTracks();
+
+  activeSong = song;
+
+  libraryView.hidden = true;
+  playerView.hidden = false;
+
+  songTitle.innerHTML =
+    `${song.title} <span class="composer">– ${song.composer}</span>`;
+
+  progress.value = 0;
+  timeDisplay.textContent = "0:00 / 0:00";
+
+  masterVolume.value = 80;
+  tempo.value = 100;
+
+  createTracks(song.tracks || []);
+
+  if (song.sheets && song.sheets.length > 0) {
+
+    sheetSection.hidden = false;
+
+    // Erste Notenseite sofort laden
+    sheetImage.src = mediaPath(song.sheets[0].file);
+
+  } else {
+
+    sheetSection.hidden = true;
+    sheetImage.removeAttribute("src");
+  }
+
+  updateVolumes();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+
+// ------------------------------------------------------------
+// AUDIO TRACKS ERSTELLEN
+// ------------------------------------------------------------
+
+function createTracks(configs) {
+
+  configs.forEach((config, index) => {
+
+    const audio = new Audio();
+
+    audio.preload = "metadata";
+    audio.src = mediaPath(config.file);
+
+    const card = document.createElement("article");
+
+    card.className = "track";
+
+    card.innerHTML = `
+      <h2>${config.name}</h2>
+
+      <div class="volume-wrap">
+
+        <label for="vol-${index}">
+          Lautstärke
+        </label>
+
+        <input
+          id="vol-${index}"
+          type="range"
+          min="0"
+          max="100"
+          value="${config.defaultVolume}"
+        >
+
+        <span id="val-${index}">
+          ${config.defaultVolume}%
+        </span>
+
+      </div>
+
+      <button
+        type="button"
+        class="solo"
+        aria-label="${config.name} solo hören"
+      >
+        S
+      </button>
+
+      <button
+        type="button"
+        class="mute"
+        aria-label="${config.name} stumm schalten"
+      >
+        M
+      </button>
+    `;
+
+    tracksEl.appendChild(card);
+
+    const track = {
+
+      config,
+      audio,
+
+      volume:
+        card.querySelector(`#vol-${index}`),
+
+      value:
+        card.querySelector(`#val-${index}`),
+
+      solo:
+        card.querySelector(".solo"),
+
+      mute:
+        card.querySelector(".mute"),
+
+      isSolo: false,
+      isMuted: false
+    };
+
+    tracks.push(track);
+
+
+    track.volume.addEventListener(
+      "input",
+      () => {
+
+        track.value.textContent =
+          `${track.volume.value}%`;
+
+        updateVolumes();
+      }
+    );
+
+
+    track.solo.addEventListener(
+      "click",
+      () => {
+
+        track.isSolo = !track.isSolo;
+
+        track.solo.classList.toggle(
+          "active",
+          track.isSolo
+        );
+
+        updateVolumes();
+      }
+    );
+
+
+    track.mute.addEventListener(
+      "click",
+      () => {
+
+        track.isMuted = !track.isMuted;
+
+        track.mute.classList.toggle(
+          "active",
+          track.isMuted
+        );
+
+        updateVolumes();
+      }
+    );
+
+
+    audio.addEventListener(
+      "loadedmetadata",
+      updateProgress
+    );
+
+
+    audio.addEventListener(
+      "error",
+      () => {
+
+        console.error(
+          "Audiodatei konnte nicht geladen werden:",
+          audio.src
+        );
+      }
+    );
+
+
+    if (index === 0) {
+
+      audio.addEventListener(
+        "ended",
+        stopAll
+      );
+    }
+
+    audio.load();
+  });
+}
+
+
+// ------------------------------------------------------------
+// LAUTSTÄRKE / TEMPO
+// ------------------------------------------------------------
+
+function updateVolumes() {
+
+  const master =
+    Number(masterVolume.value) / 100;
+
+  const hasSolo =
+    tracks.some(track => track.isSolo);
+
+
+  tracks.forEach(track => {
+
+    let ownVolume =
+      Number(track.volume.value) / 100 *
+      (track.config.boost || 1);
+
+    ownVolume =
+      Math.min(ownVolume, 1);
+
+
+    track.audio.volume =
+      track.isMuted ||
+      (hasSolo && !track.isSolo)
+        ? 0
+        : ownVolume * master;
+
+
+    track.audio.playbackRate =
+      Number(tempo.value) / 100;
+  });
+
+
+  masterValue.textContent =
+    `${masterVolume.value}%`;
+
+  tempoValue.textContent =
+    `${tempo.value}%`;
+}
+
+
+// ------------------------------------------------------------
+// SYNCHRONISIERUNG
+// ------------------------------------------------------------
+
+function syncToFirstTrack() {
+
+  if (!tracks.length) return;
+
+  const current =
+    tracks[0].audio.currentTime || 0;
+
+  tracks.forEach(track => {
+
+    if (
+      track.audio.readyState >= 1
+    ) {
+
+      track.audio.currentTime =
+        current;
+    }
+  });
+}
+
+
+// ------------------------------------------------------------
+// ABSPIELEN
+// ------------------------------------------------------------
+
+async function playAll() {
+
+  if (!tracks.length) return;
+
+  syncToFirstTrack();
+
+  try {
+
+    await Promise.all(
+      tracks.map(track =>
+        track.audio.play()
+      )
+    );
+
+    isPlaying = true;
+
+    playPauseBtn.textContent =
+      "⏸ Pause";
+
+    updateProgress();
+
+  } catch (error) {
+
+    console.error(
+      "Fehler beim Abspielen:",
+      error
+    );
+
+    alert(
+      "Die Audiodateien konnten nicht abgespielt werden. Bitte prüfe die Dateien im Audio-Ordner."
+    );
+  }
+}
+
+
+// ------------------------------------------------------------
+// PAUSE / STOP / RESET
+// ------------------------------------------------------------
+
+function pauseAll() {
+
+  tracks.forEach(track =>
+    track.audio.pause()
+  );
+
+  isPlaying = false;
+
+  playPauseBtn.textContent =
+    "▶ Abspielen";
+}
+
+
+function stopAll() {
+
+  pauseAll();
+
+  tracks.forEach(track => {
+
+    if (track.audio.readyState >= 1) {
+      track.audio.currentTime = 0;
+    }
+
+  });
+
+  progress.value = 0;
+
+  updateSheetMusic(0);
+  updateProgress();
+}
+
+
+function resetAll() {
+
+  stopAll();
+
+  masterVolume.value = 80;
+  tempo.value = 100;
+
+
+  tracks.forEach(track => {
+
+    track.volume.value =
+      track.config.defaultVolume;
+
+    track.value.textContent =
+      `${track.config.defaultVolume}%`;
+
+    track.isSolo = false;
+    track.isMuted = false;
+
+    track.solo.classList.remove("active");
+    track.mute.classList.remove("active");
+  });
+
+
+  updateVolumes();
+}
+
+
+// ------------------------------------------------------------
+// NOTENSEITEN
+// ------------------------------------------------------------
+
+function updateSheetMusic(currentTime) {
+
+  if (
+    !activeSong ||
+    !activeSong.sheets ||
+    !activeSong.sheets.length
+  ) {
+    return;
+  }
+
+
+  let page =
+    activeSong.sheets[0];
+
+
+  activeSong.sheets.forEach(sheet => {
+
+    if (currentTime >= sheet.from) {
+      page = sheet;
+    }
+
+  });
+
+
+  const wantedURL =
+    mediaPath(page.file);
+
+
+  if (sheetImage.src !== wantedURL) {
+
+    sheetImage.src =
+      wantedURL;
+  }
+}
+
+
+// ------------------------------------------------------------
+// ZEITFORMAT
+// ------------------------------------------------------------
+
+function formatTime(seconds) {
+
+  if (
+    !seconds ||
+    isNaN(seconds)
+  ) {
+    return "0:00";
+  }
+
+
+  const min =
+    Math.floor(seconds / 60);
+
+  const sec =
+    Math.floor(seconds % 60)
+      .toString()
+      .padStart(2, "0");
+
+
+  return `${min}:${sec}`;
+}
+
+
+// ------------------------------------------------------------
+// FORTSCHRITT
+// ------------------------------------------------------------
+
+function updateProgress() {
+
+  if (!tracks.length) return;
+
+
+  const first =
+    tracks[0].audio;
+
+  const current =
+    first.currentTime || 0;
+
+  const duration =
+    first.duration || 0;
+
+
+  updateSheetMusic(current);
+
+
+  if (duration > 0) {
+
+    progress.value =
+      (current / duration) * 100;
+
+    timeDisplay.textContent =
+      `${formatTime(current)} / ${formatTime(duration)}`;
+  }
+
+
+  if (isPlaying) {
+
+    progressFrame =
+      requestAnimationFrame(
+        updateProgress
+      );
+  }
+}
+
+
+// ------------------------------------------------------------
+// BUTTONS
+// ------------------------------------------------------------
+
+playPauseBtn.addEventListener(
+  "click",
+  () =>
+    isPlaying
+      ? pauseAll()
+      : playAll()
+);
+
+
+stopBtn.addEventListener(
+  "click",
+  stopAll
+);
+
+
+resetBtn.addEventListener(
+  "click",
+  resetAll
+);
+
+
+masterVolume.addEventListener(
+  "input",
+  updateVolumes
+);
+
+
+tempo.addEventListener(
+  "input",
+  updateVolumes
+);
+
+
+progress.addEventListener(
+  "input",
+  () => {
+
+    if (!tracks.length) return;
+
+    const duration =
+      tracks[0].audio.duration || 0;
+
+    const newTime =
+      Number(progress.value) /
+      100 *
+      duration;
+
+
+    tracks.forEach(track => {
+
+      if (track.audio.readyState >= 1) {
+
+        track.audio.currentTime =
+          newTime;
+      }
+
+    });
+
+
+    updateSheetMusic(newTime);
+  }
+);
+
+
+rewindBtn.addEventListener(
+  "click",
+  () => {
+
+    tracks.forEach(track => {
+
+      track.audio.currentTime =
+        Math.max(
+          0,
+          track.audio.currentTime - 10
+        );
+
+    });
+
+    updateProgress();
+  }
+);
+
+
+forwardBtn.addEventListener(
+  "click",
+  () => {
+
+    tracks.forEach(track => {
+
+      track.audio.currentTime =
+        Math.min(
+          track.audio.duration || 0,
+          track.audio.currentTime + 10
+        );
+
+    });
+
+    updateProgress();
+  }
+);
+
+
+backToLibrary.addEventListener(
+  "click",
+  () => {
+
+    destroyTracks();
+
+    activeSong = null;
+
+    playerView.hidden = true;
+    libraryView.hidden = false;
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  }
+);
+
+
+// ------------------------------------------------------------
+// START
+// ------------------------------------------------------------
+
+renderLibrary();
